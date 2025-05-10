@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "7seg-status",
+			"path": "../../Documents/PlatformIO/Projects/7seg-status"
+		}
+	],
+	"settings": {}
+}
