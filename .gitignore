@@ -6,3 +6,4 @@
 build/
 include/sample_config.h
 
+include/config.h
