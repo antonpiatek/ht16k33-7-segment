@@ -25,7 +25,7 @@ HT16K33 seg1(0x70);
 HT16K33 seg2(0x71);
 HT16K33 seg3(0x72);
 HT16K33 seg4(0x73);
-auto segs = {seg1, seg2}; // Not sure if fewer devices reduces flicker?
+auto segs = {seg1, seg2, seg3}; // Not sure if fewer devices reduces flicker?
 
 uint32_t start, stop;
 
@@ -53,10 +53,16 @@ void displayOn(){
   }
 }
 
+void displayOffline(){
+  seg1.displayHex(0x1);
+  seg2.displayHex(0x2);
+  seg3.displayHex(0x3);
+}
+
 void checkComms(){
   if(WiFi.status() != WL_CONNECTED){
       while (WiFi.status() != WL_CONNECTED) {
-          displayOff();
+          displayOffline();
           Serial.print("waiting for wifi, rc= ");
           Serial.println(WiFi.status());
           // while connecting flash led
@@ -69,14 +75,13 @@ void checkComms(){
           digitalWrite(LED_BUILTIN, LOW); 
           delay(500);
       }
-      displayOn();
       Serial.println("");
       Serial.println("WiFi connected");
       Serial.print("IP address: ");
       Serial.println(WiFi.localIP());
   }
   if(!client.connected()){
-      displayOff();
+      displayOffline();
       Serial.print("MQTT connecting to ");
       Serial.print(BROKER);
       Serial.println(" ...");
@@ -98,12 +103,22 @@ void checkComms(){
               Serial.println(client.state());
           }
           delay(2000);
-      }
-      displayOn();
-  }
+      }  }
   digitalWrite(LED_BUILTIN, LOW);
 }
 
+void display7segValue(HT16K33 device, String content)
+{
+  device.clearCache(); // displayClear() doesn't seem to actually clear the display
+  bool isFloat = content.indexOf(".") == -1 ? false : true;
+  if(isFloat){
+    auto val = content.toFloat();
+    device.displayFloat(val,1);
+  }else{
+    auto val = content.toInt();
+    device.displayInt(val);
+ }
+}
 
 void callback(char* topic, byte* payload, unsigned int length) {
   char bytes[length+1];
@@ -116,19 +131,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   auto topic_s = String(topic);
   String subtopic = topic_s.substring(String(TOPIC_BASE).length()+1, topic_s.length());
-
-  //todo device from subtopic
-  if(subtopic == "1"){
-    //todo detect type (no `.`)
-    auto val = content.toInt();
-    seg1.displayInt(val);
-  }else if(subtopic == "2"){
-    //todo detect type (has `.`)
-    auto val = content.toFloat();
-    seg2.displayFloat(val,1);
-  }else{
+    
+  
+  int segIndex = subtopic.toInt() - 1;
+  if (segIndex < 0 || segIndex+1 > static_cast<int>(segs.size())) {
     Serial.println("!Unmapped topic: "+String(topic));
+    return;
   }
+  display7segValue((HT16K33&)segs.begin()[segIndex], content);
+  
 }
 
 void setupDevice(HT16K33 device, String name)
@@ -149,7 +160,6 @@ void init_wire(){
     i++;    
     setupDevice(seg, String(i));
   }
-  seg1.displayHex(0xA);
 }
 
 void init_network()
