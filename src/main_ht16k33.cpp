@@ -48,8 +48,7 @@ int rgbLevel = 0;
 int chargeRate = 0;
 
 Scheduler ts;
-#define DURATION 10000
-#define PERIOD3 50
+#define PERIOD3 100
 void displayRgb();
 Task tBlink3 (PERIOD3, -1, &displayRgb, &ts, true);
 
@@ -160,12 +159,11 @@ void displayRgb(){
       strip.setPixelColor(i,color);
     }
   }
-  //tBlink3.getRunCounter() %1
-  if(chargeRate > 0){
-    auto fade = tBlink3.getRunCounter() %20;
-    auto pulse = fade < 10? fade/10.0*max_color : (20-fade)/10.0*max_color;
-    uint32_t color = strip.Color(0,pulse,0); // Green
-    for(int i=0; i < chargeRate; i++) {
+  if(chargeRate != 0){
+    //todo how to show discharge rate? Blue stacked on top? Or replace red above with some other colour?
+    uint32_t color = chargeRate > 0 ? strip.Color(0,max_color,0) // Green
+                                    : strip.Color(0,0,max_color); // Blue
+    for(int i=0; i < abs(chargeRate); i++) {
         int led = i + litCount+1;
         if(led >= LED_COUNT) break; // don't overflow the strip
         strip.setPixelColor(led,color);
@@ -208,7 +206,7 @@ void setupDevice(HT16K33 device, String name)
   Serial.print(String(name)+" address: ");
   Serial.println(addr);
   device.displayOn();
-  //device.setBrightness(255);// not much range
+  device.setBrightness(15);//0-15 not much range
   device.displayClear();
 }
 
@@ -220,9 +218,6 @@ void init_wire(){
     i++;    
     setupDevice(seg, String(i));
   }
-  seg1.setBrightness(15);
-  seg2.setBrightness(2);
-  seg2.setBrightness(1);
 }
 
 void init_strip(){
