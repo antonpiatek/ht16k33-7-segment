@@ -1,61 +1,37 @@
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT
+#include <doctest.h>
 
-TEST(DummyTest, ShouldPass)
-{
-    EXPECT_EQ(1, 1);
+
+int factorial(int number) { return number <= 1 ? number : factorial(number - 1) * number; }
+
+TEST_CASE("testing the factorial function") {
+    //CHECK(factorial(0) == 1);
+    CHECK(factorial(1) == 1);
+    CHECK(factorial(2) == 2);
+    CHECK(factorial(3) == 6);
+    CHECK(factorial(10) == 3628800);
 }
 
-void Sub1(int n)
-{
-    EXPECT_EQ(n, 1);
-}
 
-TEST(FooTest, Bar)
-{
-    {
-        SCOPED_TRACE("A"); // This trace point will be included in
-                           // every failure in this scope.
-        Sub1(1);
+TEST_SUITE("some TS" * doctest::description("all tests will have this")) {
+    TEST_CASE("has a description from the surrounding test suite") {
+        CHECK(1==1);
     }
-    // Now it won't.
-    Sub1(1);
 }
-
-TEST(SkipTest, DoesSkip)
-{
-    GTEST_SKIP() << "Skipping single test";
-    EXPECT_EQ(0, 1); // Won't fail; it won't be executed
+TEST_SUITE("some TS") {
+    TEST_CASE("no description even though in the same test suite as the one above") {
+        // asserts
+    }
 }
+// TEST_CASE ...
+// TEST_SUITE ...
 
-// #if defined(ARDUINO)
-// #include <Arduino.h>
 
-// void setup()
-// {
-//     // should be the same value as for the `test_speed` option in "platformio.ini"
-//     // default value is test_speed=115200
-//     Serial.begin(115200);
-
-//     ::testing::InitGoogleTest();
-// }
-
-// void loop()
-// {
-// 	// Run tests
-// 	if (RUN_ALL_TESTS())
-// 	;
-
-// 	// sleep 1 sec
-// 	delay(1000);
-// }
-
-// #else
 int main(int argc, char **argv)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-	if (RUN_ALL_TESTS())
-	;
-	// Always return zero-code and allow PlatformIO to parse results
-	return 0;
+  doctest::Context context;
+  //context.setOption("success", true);     // Report successful tests
+  context.setOption("no-exitcode", true); // Do not return non-zero code on failed test case
+  context.applyCommandLine(argc, argv);
+  return context.run();
 }
-// #endif
