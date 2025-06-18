@@ -11,6 +11,9 @@
 #include <ESP8266WiFi.h>
 #include "config.h"
 
+#include <LedStatus.h>
+
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 String clientId;
@@ -193,36 +196,11 @@ uint32_t colorToSetting(RGB setting){
   return strip.Color(setting.r,setting.g,setting.b);
 }
 
-const char* ledStatusArray[10] = {"OOOOOOOOOO"}; // O = off, C = charge, D = discharge, B = battery level
-void buildLedData(){
-  int litCount =(int)round(batteryLevel/10);
-  for(int i=0;i<10;i++) {
-    
-    if((batteryLevel >=90 && chargeRate > 0) || (batteryLevel>95)){
-      // show all green if nearly fully charged
-      ledStatusArray[i] = "C";
-    }else if(chargeRate < 0 && litCount+chargeRate >= i && i < litCount){
-      // if discharging, show the charge rate in red
-      ledStatusArray[i] = "D";
-    }else if(chargeRate > 0 && i < litCount+chargeRate && i > litCount){
-      // Add charging on top of current level
-      ledStatusArray[i] = "C";
-    }else if(i < litCount){
-      // Otherwise just show the batery level in the default colour
-      ledStatusArray[i] = "B";
-    }else{
-      ledStatusArray[i] = "O";
-    }
-    Serial.print(ledStatusArray[i]);
-  }
-  Serial.println();
-}
-
 void displayRgb(){
   strip.clear();
   int litCount =(int)round(batteryLevel/10);
   
-  buildLedData();
+  //buildLedData();
 
   for(int i=0;i<10;i++) {
 
