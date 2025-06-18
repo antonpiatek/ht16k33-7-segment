@@ -3,6 +3,7 @@
         "string": "cpp",
         "string_view": "cpp",
         "ratio": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "chrono": "cpp"
     }
 }
