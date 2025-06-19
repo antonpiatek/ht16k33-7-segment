@@ -41,11 +41,11 @@ struct Settings {
   int seg_brightness; // 0-15 not much range
   RGB battery_color;  
   RGB battery_charge_color;
-  RGB battery_discharge_color;
+  RGB battery_discharge_color; 
 };
 Settings settings = {
     15, // led_brightness (0-15)
-    0,  // seg_brightness (default value, update as needed)
+    255,  // seg_brightness (default value, update as needed)
     {255,0,0},
     {0,255,0},
     {255,255,0},
@@ -196,40 +196,31 @@ uint32_t colorToSetting(RGB setting){
   return strip.Color(setting.r,setting.g,setting.b);
 }
 
+//TODO do on events rather than timer?
 void displayRgb(){
   strip.clear();
-  int litCount =(int)round(batteryLevel/10);
-  
-  //buildLedData();
-
+  char* batterydata = buildLedData(batteryLevel, chargeRate);
   for(int i=0;i<10;i++) {
-
-    if((batteryLevel >=90 && chargeRate > 0) || (batteryLevel>95)){
-      // show all green if nearly fully charged
-      strip.setPixelColor(i,colorToSetting(settings.battery_charge_color));
-      
-    }else if(chargeRate < 0 && litCount+chargeRate >= i && i < litCount){
-      // if discharging, show the charge rate in red
-      strip.setPixelColor(i,colorToSetting(settings.battery_discharge_color));
-      
-    }else if(chargeRate > 0 && i < litCount+chargeRate && i > litCount){
-      // Add charging on top of current level
-      strip.setPixelColor(i,colorToSetting(settings.battery_charge_color));
-      
-    }else if(i < litCount){
-      // Otherwise just show the batery level in the default colour
-      strip.setPixelColor(i,colorToSetting(settings.battery_color));
-      
+    uint32_t color;
+    switch (batterydata[i])
+    {
+      case 'C':
+        color = colorToSetting(settings.battery_charge_color);
+        break;
+      case 'D':
+        color = colorToSetting(settings.battery_discharge_color);
+        break;
+      case 'B':
+        color = colorToSetting(settings.battery_color);
+        break;
+      //otherwise off
+      case 'O':
+      default:
+        color=0;
+        //nothing
     }
-    // led brightness range is not amazing so not sure this is worth it
-    // if(i == litCount){;
-    //   //TODO scale round(rgbLevel % 10 / 10.0 * settings.battery_color.r
-    //   //uint32_t color = colorToSetting(settings.battery_color);
-    //   strip.setPixelColor(i,pixelColor);
-    // }
-    
+    strip.setPixelColor(i,color);
   }
- 
   strip.show();
 }
 
