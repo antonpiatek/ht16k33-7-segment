@@ -98,8 +98,12 @@ void displayOffline(){
   seg1.displayHex(0x1);
   seg2.displayHex(0x2);
   seg3.displayHex(0x3);
-  //strip.clear();
-  //strip.show();
+  strip.clear();
+  for(int i=0;i<10;i++){
+    int c = 10-i;//inverse brightness
+    strip.setPixelColor(i,strip.Color(c,0,c));
+  }
+  strip.show();
 }
 
 void checkComms(){
