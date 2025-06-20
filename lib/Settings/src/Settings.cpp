@@ -45,8 +45,7 @@ void setBatteryColors(JsonArray input, RGB& setting){
 
 void loadSettings(const char* content){
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, content);
-  if (error) {
+  if (DeserializationError error = deserializeJson(doc, content)) {
 #ifdef Arduino_h
     Serial.print(F("load settings deserializeJson() failed: "));
     Serial.println(error.f_str());
