@@ -4,15 +4,13 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
-#include "settings.cpp"
-#include "common.hpp"
 
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include "config.h"
 
 #include <LedStatus.h>
-
+#include <Settings.h>
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -22,34 +20,12 @@ int batteryLevel = 0;
 int chargeRate = 0;
 
 String settings_topic_cmnd;
-String settings_topic_status;
 
 #define _TASK_SLEEP_ON_IDLE_RUN  // Enable 1 ms SLEEP_IDLE powerdowns between runs if no callback methods were invoked during the pass
 #define _TASK_STATUS_REQUEST     // Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
 #include <TaskScheduler.h>
 
 
-
-struct RGB { 
-  // 0-255 
-  int r;
-  int g;
-  int b;
-};
-struct Settings {
-  int led_brightness; // 0-255
-  int seg_brightness; // 0-15 not much range
-  RGB battery_color;  
-  RGB battery_charge_color;
-  RGB battery_discharge_color; 
-};
-Settings settings = {
-    15, // led_brightness (0-15)
-    255,  // seg_brightness (default value, update as needed)
-    {255,0,0},
-    {0,255,0},
-    {255,255,0},
-};
 
 #define LED_PIN D4
 #define LED_COUNT 10 // hardcoded assumptions on this being 10
@@ -122,8 +98,8 @@ void displayOffline(){
   seg1.displayHex(0x1);
   seg2.displayHex(0x2);
   seg3.displayHex(0x3);
-  strip.clear();
-  strip.show();
+  //strip.clear();
+  //strip.show();
 }
 
 void checkComms(){
@@ -224,61 +200,15 @@ void displayRgb(){
   strip.show();
 }
 
-
-
-
 void initSettingsTopics(){
   settings_topic_cmnd = String(TOPIC_BASE)+"/cmnd/"+clientId+"/settings";
-  settings_topic_status = String(TOPIC_BASE)+"/status/"+clientId+"/currentSettings";
 }
 
 void publishCurrentSettings(){
-  JsonDocument doc;
-  doc["led_brightness"] = settings.led_brightness;
-  doc["seg_brightness"] = settings.seg_brightness;
-  doc["battery_color"][0] = settings.battery_color.r;
-  doc["battery_color"][1] = settings.battery_color.g;
-  doc["battery_color"][2] = settings.battery_color.b;
-  doc["battery_charge_color"][0] = settings.battery_charge_color.r;
-  doc["battery_charge_color"][1] = settings.battery_charge_color.g;
-  doc["battery_charge_color"][2] = settings.battery_charge_color.b;
-  doc["battery_discharge_color"][0] = settings.battery_discharge_color.r;
-  doc["battery_discharge_color"][1] = settings.battery_discharge_color.g;
-  doc["battery_discharge_color"][2] = settings.battery_discharge_color.b;
-  doc["update_topic"] = settings_topic_cmnd;
-
-  String jsonString;
-  serializeJson(doc, jsonString);
-  
-  Serial.println("Publishing current settings: " + jsonString);
-  client.publish(settings_topic_status.c_str(), jsonString.c_str(), true);
+  auto jsonString = printSettings();
+  //TODO set 7seg brightness setting
+  client.publish(settings_topic_cmnd.c_str(), jsonString.c_str(), true);
 }
-
-
-
-void parseSettings(String content){
-  Serial.println("Loading settings from topic: " + content);
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, content);
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
-    return;
-  }
-  settings.led_brightness = doc["led_brightness"];
-  settings.seg_brightness = doc["seg_brightness"];
-  settings.battery_color.r = doc["battery_color"][0];
-  settings.battery_color.g = doc["battery_color"][1];
-  settings.battery_color.b = doc["battery_color"][2];
-  settings.battery_charge_color.r = doc["battery_charge_color"][0];
-  settings.battery_charge_color.g = doc["battery_charge_color"][1];
-  settings.battery_charge_color.b = doc["battery_charge_color"][2];
-  settings.battery_discharge_color.r = doc["battery_discharge_color"][0];
-  settings.battery_discharge_color.g = doc["battery_discharge_color"][1];
-  settings.battery_discharge_color.b = doc["battery_discharge_color"][2];
-  publishCurrentSettings();
-}
-
 
 
 
@@ -299,7 +229,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }else if(subtopic == "battery_charge"){
     chargeRate = content.toInt();
   }else if (topic_s == settings_topic_cmnd){
-    parseSettings(content);
+    loadSettings(bytes);
   }else if(subtopic.length() == 1){
     int segIndex = subtopic.toInt() - 1;
     if (segIndex < 0 || segIndex+1 > static_cast<int>(segs.size())) {
@@ -336,14 +266,8 @@ void init_wire(){
 
 void init_strip(){
   strip.begin();
-  strip.setBrightness(settings.led_brightness);
-  
-  // seems to do nothing, perhaps pin2 is being used for something else during wifi setup?
-  uint32_t color = strip.Color(0,0,10);
-  for(int i=0;i<LED_COUNT;i++) {
-      strip.setPixelColor(i,color);
-  }
-  
+  //TODO maybe should make this configurable - it is insanely bright at 255 pixel level
+  strip.setBrightness(255);
 }
 
 void init_network()
@@ -365,8 +289,9 @@ void setup()
   Serial.print("WIFI configured to ");
   Serial.println(WIFI_SSID);
   init_wire();
-  init_network();
   init_strip();
+  displayOffline();
+  init_network();
 }
 
 void loop()
