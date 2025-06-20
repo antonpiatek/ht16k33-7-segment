@@ -11,7 +11,7 @@ struct Settings {
   RGB battery_color;  
   RGB battery_charge_color;
   RGB battery_discharge_color; 
-  long time;
+  unsigned long time;
 };
 
 extern Settings settings;

@@ -21,6 +21,7 @@ std::string printSettings(){
   doc["battery_discharge_color"][0] = settings.battery_discharge_color.r;
   doc["battery_discharge_color"][1] = settings.battery_discharge_color.g;
   doc["battery_discharge_color"][2] = settings.battery_discharge_color.b;
+  doc["time"] = settings.time; //TODO not seen in publish, but also not getting infinite subscribe loop?
 
   std::string jsonString;
   jsonString.reserve(255); // Reserve enough space for the JSON string
@@ -68,6 +69,7 @@ void loadSettings(const char* content){
   setBatteryColors(doc["battery_discharge_color"], settings.battery_discharge_color);
 #ifdef Arduino_h
   settings.time = millis();
+  Serial.println("Settings updated at: " + String(settings.time));
 #else
   settings.time = rand();
 #endif

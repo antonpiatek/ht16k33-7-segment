@@ -16,16 +16,9 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 String clientId;
 
+//TODO move to settings or status or somthing
 int batteryLevel = 0;
 int chargeRate = 0;
-
-String settings_topic_cmnd;
-
-#define _TASK_SLEEP_ON_IDLE_RUN  // Enable 1 ms SLEEP_IDLE powerdowns between runs if no callback methods were invoked during the pass
-#define _TASK_STATUS_REQUEST     // Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
-#include <TaskScheduler.h>
-
-
 
 #define LED_PIN D4
 #define LED_COUNT 10 // hardcoded assumptions on this being 10
@@ -54,33 +47,14 @@ auto segs = {seg1, seg2, seg3}; // Not sure if fewer devices reduces flicker?
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-uint32_t start, stop;
-
 String willTopic;
 
-Scheduler ts;
-#define PERIOD3 3000
-void displayRgb();
-Task tBlink3 (PERIOD3, -1, &displayRgb, &ts, true);
-void publishCurrentSettings();
-
-void subscribe(const char* sub_topic, bool useBase)
+void subscribe(const char* sub_topic)
 {
-  String topic;
-  if(useBase){
-    topic = String(TOPIC_BASE)+"/"+String(sub_topic);
-  }else{
-    topic = String(sub_topic);
-  }
-  
+  auto topic = String(TOPIC_BASE)+"/"+String(sub_topic);
   Serial.println("Subscribing to '" + topic + "'");
   client.subscribe(topic.c_str());
 }
-
-void subscribe(const char* sub_topic){
-  subscribe(sub_topic, true);
-}
-
 
 void displayOff(){
   for (auto seg : segs){
@@ -106,6 +80,13 @@ void displayOffline(){
   strip.show();
 }
 
+void publishCurrentSettings(){
+  auto jsonString = printSettings();
+  //TODO set 7seg brightness setting
+  auto settings_topic = String(TOPIC_BASE)+"/"+clientId+"/settings";
+  client.publish(settings_topic.c_str(), jsonString.c_str(), true);
+}
+
 void checkComms(){
   if(WiFi.status() != WL_CONNECTED){
       while (WiFi.status() != WL_CONNECTED) {
@@ -114,13 +95,9 @@ void checkComms(){
           Serial.println(WiFi.status());
           // while connecting flash led
           digitalWrite(LED_BUILTIN, HIGH); 
-          delay(500);
+          delay(250);
           digitalWrite(LED_BUILTIN, LOW); 
-          delay(500);
-          digitalWrite(LED_BUILTIN, HIGH); 
-          delay(500);
-          digitalWrite(LED_BUILTIN, LOW); 
-          delay(500);
+          delay(250);
       }
       Serial.println("");
       Serial.println("WiFi connected");
@@ -140,12 +117,12 @@ void checkComms(){
               client.publish(willTopic.c_str(), "online", true);
               publishCurrentSettings();
 
-              subscribe("1");
-              subscribe("2");
-              subscribe("3");
-              subscribe("rgb");
-              subscribe("battery_charge");
-              subscribe(settings_topic_cmnd.c_str(), false);
+              subscribe("generation");
+              subscribe("generated_today");
+              subscribe("consumption");
+              subscribe("charge_level");
+              subscribe("charge_rate");
+              subscribe((clientId+"/settings").c_str());
 
               digitalWrite(LED_BUILTIN, LOW); 
           }else {
@@ -176,7 +153,6 @@ uint32_t colorToSetting(RGB setting){
   return strip.Color(setting.r,setting.g,setting.b);
 }
 
-//TODO do on events rather than timer?
 void displayRgb(){
   strip.clear();
   char* batterydata = buildLedData(batteryLevel, chargeRate);
@@ -204,18 +180,6 @@ void displayRgb(){
   strip.show();
 }
 
-void initSettingsTopics(){
-  settings_topic_cmnd = String(TOPIC_BASE)+"/cmnd/"+clientId+"/settings";
-}
-
-void publishCurrentSettings(){
-  auto jsonString = printSettings();
-  //TODO set 7seg brightness setting
-  client.publish(settings_topic_cmnd.c_str(), jsonString.c_str(), true);
-}
-
-
-
 void callback(char* topic, byte* payload, unsigned int length) {
   char bytes[length+1];
   bytes[length] = '\0';
@@ -227,23 +191,23 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   auto topic_s = String(topic);
   String subtopic = topic_s.substring(String(TOPIC_BASE).length()+1, topic_s.length());
-    
-  if(subtopic == "rgb"){
-    batteryLevel = content.toInt();
-  }else if(subtopic == "battery_charge"){
-    chargeRate = content.toInt();
-  }else if (topic_s == settings_topic_cmnd){
+  
+  if (subtopic == clientId+"/settings"){
     loadSettings(bytes);
-  }else if(subtopic.length() == 1){
-    int segIndex = subtopic.toInt() - 1;
-    if (segIndex < 0 || segIndex+1 > static_cast<int>(segs.size())) {
-      Serial.println("!Unmapped topic: "+String(topic));
-      return;
-    }
-    display7segValue((HT16K33&)segs.begin()[segIndex], content);
+  }else if(subtopic == "charge_level"){
+    batteryLevel = content.toInt();
+  }else if(subtopic == "charge_rate"){
+    chargeRate = content.toInt();
+  }else if (subtopic == "generation"){
+    display7segValue(seg1, content);//TODO spit into set() and display()?
+  }else if(subtopic == "generated_today"){
+    display7segValue(seg2, content);
+  }else if(subtopic == "consumption"){
+    display7segValue(seg3, content);
   }else{
     Serial.println("!Unmapped topic: "+String(topic));
   }
+  displayRgb();
   
 }
 
@@ -280,9 +244,8 @@ void init_network()
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   clientId = WiFi.macAddress();
   client.setServer(BROKER, 1883);
-  initSettingsTopics();
   client.setCallback(callback);
-  willTopic = String(TOPIC_BASE)+"/status/"+clientId+"/will";
+  willTopic = String(TOPIC_BASE)+"/"+clientId+"/will";
   checkComms();
 }
 
@@ -302,6 +265,5 @@ void loop()
 {
   checkComms();
   client.loop();
-  ts.execute();
 }
 
